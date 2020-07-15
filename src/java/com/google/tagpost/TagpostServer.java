@@ -1,18 +1,14 @@
 package com.google.tagpost;
 
-
-import com.google.tagpost.TagpostModule;
+import com.google.common.flogger.FluentLogger;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 
-import com.google.inject.Guice;
-import com.google.inject.Injector;
-
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 import java.lang.Thread;
-
-import com.google.common.flogger.FluentLogger;
+import java.util.concurrent.TimeUnit;
 
 /** A gRPC server that serve the Tagpost service. */
 public class TagpostServer {
@@ -29,7 +25,11 @@ public class TagpostServer {
 
   private void start() throws IOException {
     /* The port on which the server should run */
-    int port = 50053;
+    String portStr = System.getenv("TAGPOST_GRPC_PORT");
+    if (portStr == null) {
+      throw new IllegalArgumentException("Environment variable TAGPOST_GRPC_PORT is unset");
+    }
+    int port = Integer.parseInt(portStr);
 
     Injector injector = Guice.createInjector(new TagpostModule());
     TagpostService tagpostService = injector.getInstance(TagpostService.class);
@@ -37,19 +37,19 @@ public class TagpostServer {
     server = ServerBuilder.forPort(port).addService(tagpostService).build().start();
     logger.atInfo().log("Server started, listening on " + port);
     Runtime.getRuntime()
-        .addShutdownHook(
-            new Thread() {
-              @Override
-              public void run() {
-                logger.atInfo().log("*** shutting down gRPC server since JVM is shutting down");
-                try {
-                  TagpostServer.this.stop();
-                } catch (InterruptedException e) {
-                  e.printStackTrace(System.err);
-                }
-                logger.atInfo().log("*** server shut down");
-              }
-            });
+            .addShutdownHook(
+                    new Thread() {
+                      @Override
+                      public void run() {
+                        logger.atInfo().log("*** shutting down gRPC server since JVM is shutting down");
+                        try {
+                          TagpostServer.this.stop();
+                        } catch (InterruptedException e) {
+                          e.printStackTrace(System.err);
+                        }
+                        logger.atInfo().log("*** server shut down");
+                      }
+                    });
   }
 
   private void stop() throws InterruptedException {
